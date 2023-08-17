@@ -3,12 +3,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.UIElements;
 using static UnityEngine.Rendering.DebugUI;
+//for more API access (most aren't used lol)
 
 public class RExManager : MonoBehaviour
 {
@@ -26,25 +28,39 @@ public class RExManager : MonoBehaviour
     private string[] subCoreOres;
     private string[] subRoccOres;
 
+    //more string arrays to hold the banned ores and the amount of punishments
+    private string[] bannedOres;
+    private string[] punishAmount;
+    private string[] punishArray;
+    private float[] punishChances;
 
+    //private GameObjects for things that are called in script
     private GameObject oreList;
     private GameObject mainCanvas;
     private GameObject timer;
-    private bool timerOn = false;
+    private GameObject punishUI;
+    private GameObject percentageUI;
+
+    //private bools to hold true or false statements relating to the timer and punishments
+    private bool isPunished;
+    private bool timerOn;
+
+    //special bool to cease everything
+    private bool stopAll;
+    private bool cantPunish;
+
+    //private integers for the timer and amount of layers
     private int timeOne = 5;
     private int timeTwo = 0;
     private int layerInt;
-    private string[] bannedOres;
-    private string[] punishAmount;
-    private GameObject punishUI;
-    private bool isPunished;
-
 
     private void Start()
     {
+        punishChances = new float[1];
         mainCanvas = GameObject.FindGameObjectWithTag("MAIN");
         timer = GameObject.Find("Timer");
         punishUI = GameObject.Find("Punish");
+        percentageUI = GameObject.Find("Percentage");
         surfaceOres = new string[15];
         Surface();
         oreList = GameObject.FindGameObjectWithTag("Ore List");
@@ -84,6 +100,34 @@ public class RExManager : MonoBehaviour
             punishUI.GetComponent<TMP_InputField>().interactable = true;
         }
         timer.GetComponent<TMP_Text>().text = timeOne.ToString() + ":" + timeTwo.ToString();
+
+        percentageUI.GetComponent<TMP_Text>().text = GetPercentage() + "%";
+
+        if (Int32.Parse(Regex.Match(percentageUI.GetComponent<TMP_Text>().text, @"\d+").Value) > 100)
+        {
+            percentageUI.GetComponent<TMP_Text>().color = Color.red;
+        }
+        else if (Int32.Parse(Regex.Match(percentageUI.GetComponent<TMP_Text>().text, @"\d+").Value) == 100)
+        {
+            percentageUI.GetComponent<TMP_Text>().color = Color.green;
+        }
+        else
+        {
+            percentageUI.GetComponent<TMP_Text>().color = Color.white;
+        }
+    }
+
+    private float GetPercentage()
+    {
+        float amount = 0f;
+        if (punishChances[0] != 0)
+        {
+            for (int i = 0; i < punishChances.Length; i++)
+            {
+                amount += punishChances[i];
+            }
+        }
+        return amount;
     }
 
     public void Create()
@@ -229,7 +273,7 @@ public class RExManager : MonoBehaviour
 
     public void Play()
     {
-        if (!timerOn)
+        if (!timerOn && !stopAll)
         {
             if (timeOne == 5)
             {
@@ -244,7 +288,7 @@ public class RExManager : MonoBehaviour
 
     private IEnumerator Timer()
     {
-        if (timerOn)
+        if (timerOn && !stopAll)
         {
             
             if (timeTwo < 0) { timeOne--; timeTwo = 59; }
@@ -270,7 +314,7 @@ public class RExManager : MonoBehaviour
         timeOne = 5;
         timeTwo = 0;
         GameObject.FindGameObjectWithTag("Banned").GetComponent<TMP_InputField>().text = String.Empty;
-        punishUI.GetComponent<TMP_InputField>().text = String.Empty;
+        //punishUI.GetComponent<TMP_InputField>().text = String.Empty;
         isPunished = false;
         BannedList();
     }
@@ -278,15 +322,48 @@ public class RExManager : MonoBehaviour
     public void Pause()
     {
         timerOn = false;
+        isPunished = false;
     }
 
     public void Punish()
     {
-        if (punishUI.GetComponent<TMP_InputField>().text != String.Empty && !isPunished)
+        if (punishUI.GetComponent<TMP_InputField>().text != String.Empty && !isPunished && !stopAll || !cantPunish)
         {
+            bool specifiedChances = true;
+            punishArray = new string[punishAmount.Length];
             isPunished = true;
-            int x = UnityEngine.Random.Range(0, punishAmount.Length);
-            punishUI.GetComponent<TMP_InputField>().text = "<color=green>" + punishAmount[x] + "</color>";
+            for (int i = 0; i < punishAmount.Length; i++)
+            {
+                punishArray[i] = punishAmount[i].ToString();
+                if (punishAmount[0].Contains('(') && punishAmount[0].Contains(')'))
+                {
+                }
+                else
+                {
+                    specifiedChances = false;
+                }
+            }
+            if (specifiedChances && GetPercentage() == 100)
+            {
+                float randomValue = UnityEngine.Random.Range(0.00f, 100.00f);
+
+                for (int i = 0; i < punishChances.Length; i++)
+                {
+                    randomValue -= punishChances[i];
+
+                    if (randomValue <= 0f)
+                    {
+                        punishUI.GetComponent<TMP_InputField>().text = "<color=green>" + punishAmount[i] + "</color>";
+                        break;
+                    }
+                }
+            }
+            else if (!specifiedChances)
+            {
+                int x = UnityEngine.Random.Range(0, punishAmount.Length);
+                punishUI.GetComponent<TMP_InputField>().text = "<color=green>" + punishAmount[x] + "</color>";
+            }
+            StartCoroutine(PunishWait());
         }
     }
 
@@ -295,7 +372,30 @@ public class RExManager : MonoBehaviour
         if (punishUI.GetComponent<TMP_InputField>().text != String.Empty)
         {
             punishAmount = punishUI.GetComponent<TMP_InputField>().text.Split('\n');
+            punishChances = new float[punishAmount.Length];
+            for (int i = 0; i < punishAmount.Length; i++)
+            {
+                //punishArray[i] = punishAmount[i].ToString();
+                if (punishAmount[0].Contains('(') && punishAmount[0].Contains(')'))
+                {
+                    string y = punishAmount[i].Split('(', '%', ')')[1];
+                    punishChances[i] = float.Parse(y);
+                }
+            }
         }
+    }
+
+    private IEnumerator PunishWait()
+    {
+        stopAll = true;
+        yield return new WaitForSecondsRealtime(5);
+        punishUI.GetComponent<TMP_InputField>().text = String.Empty;
+        for (int i = 0; i < punishArray.Length; i++)
+        {
+            punishUI.GetComponent<TMP_InputField>().text += punishArray[i].ToString() + "\n";
+        }
+        Stop();
+        stopAll = false;
     }
     public void DropDown(int val)
     {
