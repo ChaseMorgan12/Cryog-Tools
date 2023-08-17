@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.UIElements;
@@ -250,9 +251,12 @@ public class RExManager : MonoBehaviour
             if (timeOne < 0) 
             { 
                 timerOn = false; 
-                Play(); 
+                timeOne = 5;
+                timeTwo = 0;
                 GameObject.FindGameObjectWithTag("Banned").GetComponent<TMP_InputField>().text = String.Empty;
                 BannedList();
+                Play();
+                yield break;
             }
             yield return new WaitForSecondsRealtime(1f);
             timeTwo--;
