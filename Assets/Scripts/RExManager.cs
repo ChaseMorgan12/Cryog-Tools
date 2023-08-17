@@ -11,7 +11,7 @@ using static UnityEngine.Rendering.DebugUI;
 
 public class RExManager : MonoBehaviour
 {
-
+    //String arrays to hold all ores with their respective layer
     private string[] surfaceOres;
     private string[] basaltOres;
     private string[] graniteOres;
@@ -24,6 +24,8 @@ public class RExManager : MonoBehaviour
     private string[] subMantleOres;
     private string[] subCoreOres;
     private string[] subRoccOres;
+
+
     private GameObject oreList;
     private GameObject mainCanvas;
     private GameObject timer;
